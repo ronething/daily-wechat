@@ -150,12 +150,16 @@ class GFWeather:
             sweet_words = girlfriend.get('sweet_words')
             today_msg = self.get_weather_info(dictum_msg, city_code=city_code, start_date=start_date,
                                               sweet_words=sweet_words)
-            name_uuid = girlfriend.get('name_uuid')
             wechat_name = girlfriend.get('wechat_name')
             print(f'给『{wechat_name}』发送的内容是:\n{today_msg}')
 
             if not is_test:
                 if self.is_online(auto_login=True):
+                    friends = itchat.search_friends(name=wechat_name)
+                    if not friends:
+                        print('昵称有误')
+                        return
+                    name_uuid = friends[0].get('UserName')
                     itchat.send(today_msg, toUserName=name_uuid)
                 # 防止信息发送过快。
                 time.sleep(5)
