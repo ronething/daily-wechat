@@ -13,17 +13,18 @@ dictum_channel: 2
 
 friend_infos:
   -
+    type: 'person'
     # 朋友微信昵称
     wechat_name: '郑玩星'
     # 朋友所在城市
     city_name: '广州'
     # 运行开始时间
-    start_date: ''
+    start_date: '2019-06-11'
     # 留言（可空）
-    sweet_words: '今天是个好日子'
+    sweet_words: ''
 
-group_infos:
   -
+    type: 'group'
     # 群组微信昵称
     wechat_name: '一个测试群'
     # 群组城市
@@ -31,4 +32,16 @@ group_infos:
     # 运行开始时间
     start_date: ''
     # 留言
-    sweet_words: 'be a man'
+    sweet_words: ''
+
+  - type: 'group'
+    wechat_name: '🈚️表情包😁🏫'
+    city_name: '珠海'
+    start_date: '2019-06-11'
+    sweet_words: ''
+
+#  -
+#    wechat_name: '🐑🐔🐶🏠❤️🔆'
+#    city_name: '汕头'
+#    start_data: ''
+#    sweet_words: ''

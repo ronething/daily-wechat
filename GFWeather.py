@@ -13,6 +13,7 @@ import city_dict
 # fire the job again if it was missed within GRACE_PERIOD
 GRACE_PERIOD = 15 * 60
 
+
 class GFWeather:
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/67.0.3396.87 Safari/537.36",
@@ -20,7 +21,7 @@ class GFWeather:
     dictum_channel_name = {1: 'ONE●一个', 2: '词霸(每日英语)', 3: '土味情话'}
 
     def __init__(self):
-        self.friend_list, self.alarm_hour, self.alarm_minute, self.dictum_channel, self.group_list = self.get_init_data()
+        self.friend_list, self.alarm_hour, self.alarm_minute, self.dictum_channel = self.get_init_data()
 
     def get_init_data(self):
         '''
@@ -38,7 +39,6 @@ class GFWeather:
 
         friend_list = []
         friend_infos = config.get('friend_infos')
-        group_infos = config.get('group_infos')
 
         for friend in friend_infos:
             friend.get('wechat_name').strip()
@@ -54,27 +54,12 @@ class GFWeather:
             print_msg = f"朋友的微信昵称：{friend.get('wechat_name')}\n\t朋友所在城市名称：{friend.get('city_name')}\n\t" \
                 f"成功运行的第一天日期：{friend.get('start_date')}\n\t最后一句为：{friend.get('sweet_words')}\n"
             init_msg += print_msg
-        
-        group_list = []
-        for group in group_infos:
-            group.get('wechat_name').strip()
-            city_name = group.get('city_name').strip()
-            city_code = city_dict.city_dict.get(city_name)
-            if not city_code:
-                print('您输入的城市无法收取到天气信息')
-                break
-            group['city_code'] = city_code
-            group_list.append(group)
-
-            print_msg = f"群组的微信昵称：{group.get('wechat_name')}\n\t群组所在城市名称：{group.get('city_name')}\n\t" \
-                f"成功运行的第一天日期：{group.get('start_date')}\n\t最后一句为：{group.get('sweet_words')}\n"
-            init_msg += print_msg
 
         print(u"*" * 50)
         print(init_msg)
 
         hour, minute = [int(x) for x in alarm_timed.split(':')]
-        return friend_list, hour, minute, dictum_channel, group_list
+        return friend_list, hour, minute, dictum_channel
 
     def is_online(self, auto_login=False):
         '''
@@ -104,7 +89,7 @@ class GFWeather:
         # 登陆，尝试 5 次
         for _ in range(5):
             # 命令行显示登录二维码
-            itchat.auto_login(enableCmdQR=2)
+            itchat.auto_login(hotReload=True, enableCmdQR=2)
             if online():
                 print('登录成功')
                 return True
@@ -120,23 +105,12 @@ class GFWeather:
         # 自动登录
         if not self.is_online(auto_login=True):
             return
-        for friend in self.friend_list:
-            wechat_name = friend.get('wechat_name')
-            friends = itchat.search_friends(name=wechat_name)
-            if not friends:
-                print('昵称有误')
-                return
-            name_uuid = friends[0].get('UserName')
-            friend['name_uuid'] = name_uuid
-
         # 定时任务
         scheduler = BlockingScheduler()
-        # 每天9：30左右给朋友发送每日一句
         scheduler.add_job(self.start_today_info, 'cron', hour=self.alarm_hour,
-                          minute=self.alarm_minute, misfire_grace_time=GRACE_PERIOD)
-        # 每隔 2 分钟发送一条数据用于测试。
-#         if DEBUG:
-#             scheduler.add_job(self.start_today_info, 'interval', seconds=120)
+                          minute=self.alarm_minute, misfire_grace_time=GRACE_PERIOD,
+                          max_instances=len(self.friend_list))
+        # scheduler.add_job(self.start_today_info, 'interval', seconds=10, max_instances=len(self.friend_list))
         scheduler.start()
 
     def start_today_info(self, is_test=False):
@@ -161,6 +135,7 @@ class GFWeather:
             city_code = friend.get('city_code')
             start_date = friend.get('start_date').strip()
             sweet_words = friend.get('sweet_words')
+            friend_type = friend.get('type')
             today_msg = self.get_weather_info(dictum_msg, city_code=city_code, start_date=start_date,
                                               sweet_words=sweet_words)
             wechat_name = friend.get('wechat_name')
@@ -168,27 +143,13 @@ class GFWeather:
 
             if not is_test:
                 if self.is_online(auto_login=True):
-                    friends = itchat.search_friends(name=wechat_name)
-                    if not friends:
-                        print('昵称有误')
-                        return
-                    name_uuid = friends[0].get('UserName')
-                    itchat.send(today_msg, toUserName=name_uuid)
-                # 防止信息发送过快。
-                time.sleep(5)
-
-        for friend in self.group_list:
-            city_code = friend.get('city_code')
-            start_date = friend.get('start_date').strip()
-            sweet_words = friend.get('sweet_words')
-            today_msg = self.get_weather_info(dictum_msg, city_code=city_code, start_date=start_date,
-                                              sweet_words=sweet_words)
-            wechat_name = friend.get('wechat_name')
-            print(f'给群组『{wechat_name}』发送的内容是:\n{today_msg}')
-
-            if not is_test:
-                if self.is_online(auto_login=True):
-                    friends = itchat.search_chatrooms(name=wechat_name)
+                    if friend_type == 'person':
+                        friends = itchat.search_friends(name=wechat_name)
+                    elif friend_type == 'group':
+                        friends = itchat.search_chatrooms(name=wechat_name)
+                    else:
+                        print('配置文件 type 类型指定错误')
+                        continue
                     if not friends:
                         print('昵称有误')
                         return
@@ -297,7 +258,8 @@ class GFWeather:
             if start_date:
                 try:
                     start_datetime = datetime.strptime(start_date, "%Y-%m-%d")
-                    day_delta = (datetime.now() - start_datetime).days
+                    # 如果不 +1 如果是当天 会显示 0
+                    day_delta = (datetime.now() - start_datetime).days + 1
                     delta_msg = f'一如既往成功运行的第 {day_delta} 天。\n'
                 except:
                     delta_msg = ''
