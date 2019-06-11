@@ -20,7 +20,7 @@ class GFWeather:
     dictum_channel_name = {1: 'ONE●一个', 2: '词霸(每日英语)', 3: '土味情话'}
 
     def __init__(self):
-        self.girlfriend_list, self.alarm_hour, self.alarm_minute, self.dictum_channel = self.get_init_data()
+        self.friend_list, self.alarm_hour, self.alarm_minute, self.dictum_channel, self.group_list = self.get_init_data()
 
     def get_init_data(self):
         '''
@@ -36,28 +36,45 @@ class GFWeather:
         dictum_channel = config.get('dictum_channel', -1)
         init_msg += f"格言获取渠道：{self.dictum_channel_name.get(dictum_channel, '无')}\n"
 
-        girlfriend_list = []
-        girlfriend_infos = config.get('girlfriend_infos')
-        for girlfriend in girlfriend_infos:
-            girlfriend.get('wechat_name').strip()
+        friend_list = []
+        friend_infos = config.get('friend_infos')
+        group_infos = config.get('group_infos')
+
+        for friend in friend_infos:
+            friend.get('wechat_name').strip()
             # 根据城市名称获取城市编号，用于查询天气。查看支持的城市为：http://cdn.sojson.com/_city.json
-            city_name = girlfriend.get('city_name').strip()
+            city_name = friend.get('city_name').strip()
             city_code = city_dict.city_dict.get(city_name)
             if not city_code:
                 print('您输入的城市无法收取到天气信息')
                 break
-            girlfriend['city_code'] = city_code
-            girlfriend_list.append(girlfriend)
+            friend['city_code'] = city_code
+            friend_list.append(friend)
 
-            print_msg = f"女朋友的微信昵称：{girlfriend.get('wechat_name')}\n\t女友所在城市名称：{girlfriend.get('city_name')}\n\t" \
-                f"在一起的第一天日期：{girlfriend.get('start_date')}\n\t最后一句为：{girlfriend.get('sweet_words')}\n"
+            print_msg = f"朋友的微信昵称：{friend.get('wechat_name')}\n\t朋友所在城市名称：{friend.get('city_name')}\n\t" \
+                f"成功运行的第一天日期：{friend.get('start_date')}\n\t最后一句为：{friend.get('sweet_words')}\n"
+            init_msg += print_msg
+        
+        group_list = []
+        for group in group_infos:
+            group.get('wechat_name').strip()
+            city_name = group.get('city_name').strip()
+            city_code = city_dict.city_dict.get(city_name)
+            if not city_code:
+                print('您输入的城市无法收取到天气信息')
+                break
+            group['city_code'] = city_code
+            group_list.append(group)
+
+            print_msg = f"群组的微信昵称：{group.get('wechat_name')}\n\t群组所在城市名称：{group.get('city_name')}\n\t" \
+                f"成功运行的第一天日期：{group.get('start_date')}\n\t最后一句为：{group.get('sweet_words')}\n"
             init_msg += print_msg
 
         print(u"*" * 50)
         print(init_msg)
 
         hour, minute = [int(x) for x in alarm_timed.split(':')]
-        return girlfriend_list, hour, minute, dictum_channel
+        return friend_list, hour, minute, dictum_channel, group_list
 
     def is_online(self, auto_login=False):
         '''
@@ -87,11 +104,7 @@ class GFWeather:
         # 登陆，尝试 5 次
         for _ in range(5):
             # 命令行显示登录二维码
-            # itchat.auto_login(enableCmdQR=True)
-            if os.environ.get('MODE') == 'server':
-                itchat.auto_login(enableCmdQR=2)
-            else:
-                itchat.auto_login()
+            itchat.auto_login(enableCmdQR=2)
             if online():
                 print('登录成功')
                 return True
@@ -107,18 +120,18 @@ class GFWeather:
         # 自动登录
         if not self.is_online(auto_login=True):
             return
-        for girlfriend in self.girlfriend_list:
-            wechat_name = girlfriend.get('wechat_name')
+        for friend in self.friend_list:
+            wechat_name = friend.get('wechat_name')
             friends = itchat.search_friends(name=wechat_name)
             if not friends:
                 print('昵称有误')
                 return
             name_uuid = friends[0].get('UserName')
-            girlfriend['name_uuid'] = name_uuid
+            friend['name_uuid'] = name_uuid
 
         # 定时任务
         scheduler = BlockingScheduler()
-        # 每天9：30左右给女朋友发送每日一句
+        # 每天9：30左右给朋友发送每日一句
         scheduler.add_job(self.start_today_info, 'cron', hour=self.alarm_hour,
                           minute=self.alarm_minute, misfire_grace_time=GRACE_PERIOD)
         # 每隔 2 分钟发送一条数据用于测试。
@@ -144,18 +157,38 @@ class GFWeather:
         else:
             dictum_msg = ''
 
-        for girlfriend in self.girlfriend_list:
-            city_code = girlfriend.get('city_code')
-            start_date = girlfriend.get('start_date').strip()
-            sweet_words = girlfriend.get('sweet_words')
+        for friend in self.friend_list:
+            city_code = friend.get('city_code')
+            start_date = friend.get('start_date').strip()
+            sweet_words = friend.get('sweet_words')
             today_msg = self.get_weather_info(dictum_msg, city_code=city_code, start_date=start_date,
                                               sweet_words=sweet_words)
-            wechat_name = girlfriend.get('wechat_name')
+            wechat_name = friend.get('wechat_name')
             print(f'给『{wechat_name}』发送的内容是:\n{today_msg}')
 
             if not is_test:
                 if self.is_online(auto_login=True):
                     friends = itchat.search_friends(name=wechat_name)
+                    if not friends:
+                        print('昵称有误')
+                        return
+                    name_uuid = friends[0].get('UserName')
+                    itchat.send(today_msg, toUserName=name_uuid)
+                # 防止信息发送过快。
+                time.sleep(5)
+
+        for friend in self.group_list:
+            city_code = friend.get('city_code')
+            start_date = friend.get('start_date').strip()
+            sweet_words = friend.get('sweet_words')
+            today_msg = self.get_weather_info(dictum_msg, city_code=city_code, start_date=start_date,
+                                              sweet_words=sweet_words)
+            wechat_name = friend.get('wechat_name')
+            print(f'给群组『{wechat_name}』发送的内容是:\n{today_msg}')
+
+            if not is_test:
+                if self.is_online(auto_login=True):
+                    friends = itchat.search_chatrooms(name=wechat_name)
                     if not friends:
                         print('昵称有误')
                         return
@@ -260,12 +293,12 @@ class GFWeather:
             aqi = today_weather.get('aqi')
             aqi = f"空气 : {aqi}"
 
-            # 在一起，一共多少天了，如果没有设置初始日期，则不用处理
+            # 成功运行的天数
             if start_date:
                 try:
                     start_datetime = datetime.strptime(start_date, "%Y-%m-%d")
                     day_delta = (datetime.now() - start_datetime).days
-                    delta_msg = f'宝贝这是我们在一起的第 {day_delta} 天。\n'
+                    delta_msg = f'一如既往成功运行的第 {day_delta} 天。\n'
                 except:
                     delta_msg = ''
             else:

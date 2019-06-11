@@ -11,21 +11,24 @@ alarm_timed: '9:30'
 # 3 : 土味情话
 dictum_channel: 2
 
-girlfriend_infos:
+friend_infos:
   -
-    #女友微信昵称
-    wechat_name: '古典'
-    #女友所在桂林
-    city_name: '桂林'
-    # 从那天开始勾搭的（可空）
-    start_date: '  '
-    # 短句的最后留言（可空）
-    sweet_words: '来自最爱你的我。'
+    # 朋友微信昵称
+    wechat_name: '郑玩星'
+    # 朋友所在城市
+    city_name: '广州'
+    # 运行开始时间
+    start_date: ''
+    # 留言（可空）
+    sweet_words: '今天是个好日子'
 
-  #如果你有多个人需要发送，则参照这个样式，复制即可
-  #如不需要，则删除或注解下面所有的数据
+group_infos:
   -
-    wechat_name: '陈老师'
-    city_name: '朝阳区'
-    start_date: '2018-11-11'
-    sweet_words: '来自你俊美的老公。'
+    # 群组微信昵称
+    wechat_name: '一个测试群'
+    # 群组城市
+    city_name: '汕头'
+    # 运行开始时间
+    start_date: ''
+    # 留言
+    sweet_words: 'be a man'

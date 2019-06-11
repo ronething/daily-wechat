@@ -154,7 +154,7 @@ alarm_timed: '9:30'
 # 3 : 土味情话
 dictum_channel: 2
 
-girlfriend_infos:
+friend_infos:
   -
     #女友微信昵称
     wechat_name: '古典'
