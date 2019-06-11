@@ -24,10 +24,10 @@ class GFWeather:
         self.friend_list, self.alarm_hour, self.alarm_minute, self.dictum_channel = self.get_init_data()
 
     def get_init_data(self):
-        '''
+        """
         初始化基础数据
         :return: None
-        '''
+        """
         with open('_config.yaml', 'r', encoding='utf-8') as f:
             config = yaml.load(f, Loader=yaml.Loader)
 
@@ -62,17 +62,17 @@ class GFWeather:
         return friend_list, hour, minute, dictum_channel
 
     def is_online(self, auto_login=False):
-        '''
+        """
         判断是否还在线,
         :param auto_login: bool,如果掉线了则自动登录(默认为 False)。
         :return: bool,当返回为 True 时，在线；False 已断开连接。
-        '''
+        """
 
         def online():
-            '''
+            """
             通过获取好友信息，判断用户是否还在线
             :return: bool,当返回为 True 时，在线；False 已断开连接。
-            '''
+            """
             try:
                 if itchat.search_friends():
                     return True
@@ -98,27 +98,44 @@ class GFWeather:
             return False
 
     def run(self):
-        '''
+        """
         主运行入口
         :return:None
-        '''
+        """
         # 自动登录
         if not self.is_online(auto_login=True):
             return
+        for friend in self.friend_list:
+            friend_type = friend.get('type')
+            wechat_name = friend.get('wechat_name')
+            if friend_type == 'person':
+                friends = itchat.search_friends(name=wechat_name)
+            elif friend_type == 'group':
+                friends = itchat.search_chatrooms(name=wechat_name)
+            else:
+                print('配置文件 type 类型指定错误')
+                continue
+            if not friends:
+                print('昵称有误')
+                return
+            friend['uin'] = friends[0].get('UserName')
+
         # 定时任务
         scheduler = BlockingScheduler()
         scheduler.add_job(self.start_today_info, 'cron', hour=self.alarm_hour,
                           minute=self.alarm_minute, misfire_grace_time=GRACE_PERIOD,
                           max_instances=len(self.friend_list))
         # scheduler.add_job(self.start_today_info, 'interval', seconds=10, max_instances=len(self.friend_list))
+        # 心跳包检测 每 5 分钟 后续加入 email 掉线通知
+        scheduler.add_job(self.is_online, 'interval', minutes=5, kwargs={'auto_login': True})
         scheduler.start()
 
     def start_today_info(self, is_test=False):
-        '''
+        """
         每日定时开始处理。
         :param is_test:bool, 测试标志，当为True时，不发送微信信息，仅仅获取数据。
         :return: None。
-        '''
+        """
         print("*" * 50)
         print('获取相关信息...')
 
@@ -135,7 +152,7 @@ class GFWeather:
             city_code = friend.get('city_code')
             start_date = friend.get('start_date').strip()
             sweet_words = friend.get('sweet_words')
-            friend_type = friend.get('type')
+            uin = friend.get('uin')
             today_msg = self.get_weather_info(dictum_msg, city_code=city_code, start_date=start_date,
                                               sweet_words=sweet_words)
             wechat_name = friend.get('wechat_name')
@@ -143,29 +160,17 @@ class GFWeather:
 
             if not is_test:
                 if self.is_online(auto_login=True):
-                    if friend_type == 'person':
-                        friends = itchat.search_friends(name=wechat_name)
-                    elif friend_type == 'group':
-                        friends = itchat.search_chatrooms(name=wechat_name)
-                    else:
-                        print('配置文件 type 类型指定错误')
-                        continue
-                    if not friends:
-                        print('昵称有误')
-                        return
-                    name_uuid = friends[0].get('UserName')
-                    itchat.send(today_msg, toUserName=name_uuid)
+                    itchat.send(today_msg, toUserName=uin)
+
                 # 防止信息发送过快。
                 time.sleep(5)
 
-        print('发送成功..\n')
-
     def isJson(self, resp):
-        '''
+        """
         判断数据是否能被 Json 化。 True 能，False 否。
         :param resp: request
         :return: bool, True 数据可 Json 化；False 不能 JOSN 化。
-        '''
+        """
         try:
             resp.json()
             return True
@@ -173,10 +178,10 @@ class GFWeather:
             return False
 
     def get_ciba_info(self):
-        '''
+        """
         从词霸中获取每日一句，带英文。
         :return:str ,返回每日一句（双语）
-        '''
+        """
         print('获取格言信息（双语）...')
         resp = requests.get('http://open.iciba.com/dsapi')
         if resp.status_code == 200 and self.isJson(resp):
@@ -189,10 +194,10 @@ class GFWeather:
             return None
 
     def get_dictum_info(self):
-        '''
+        """
         获取格言信息（从『一个。one』获取信息 http://wufazhuce.com/）
         :return: str， 一句格言或者短语
-        '''
+        """
         print('获取格言信息...')
         user_url = 'http://wufazhuce.com/'
         resp = requests.get(user_url, headers=self.headers)
@@ -205,10 +210,10 @@ class GFWeather:
         return ''
 
     def get_lovelive_info(self):
-        '''
+        """
         从土味情话中获取每日一句。
         :return: str,土味情话
-        '''
+        """
         print('获取土味情话...')
         resp = requests.get("https://api.lovelive.tools/api/SweetNothings")
         if resp.status_code == 200:
@@ -219,14 +224,14 @@ class GFWeather:
 
     def get_weather_info(self, dictum_msg='', city_code='101030100', start_date='2018-01-01',
                          sweet_words='From your Valentine'):
-        '''
+        """
         获取天气信息。网址：https://www.sojson.com/blog/305.html
         :param dictum_msg: str,发送给朋友的信息
         :param city_code: str,城市对应编码
         :param start_date: str,恋爱第一天日期
         :param sweet_words: str,来自谁的留言
         :return: str,需要发送的话。
-        '''
+        """
         print('获取天气信息...')
         weather_url = f'http://t.weather.sojson.com/api/weather/city/{city_code}'
         resp = requests.get(url=weather_url)
