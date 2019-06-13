@@ -3,45 +3,35 @@
 #  http://einverne.github.io/post/2015/08/yaml.html
 
 # 定时时间
-alarm_timed: '9:30'
+alarm_timed: '8:30'
 
 # 格言渠道
 # 1 : ONE●一个
 # 2 : 词霸（每日英语，双语）
-# 3 : 土味情话
 dictum_channel: 2
 
 friend_infos:
   -
-    type: 'person'
-    # 朋友微信昵称
-    wechat_name: '郑玩星'
-    # 朋友所在城市
+    type: 'group'
+    # 群组微信昵称
+    wechat_name: '发过🐷 头'
+    # 群组城市
     city_name: '广州'
     # 运行开始时间
-    start_date: '2019-06-11'
-    # 留言（可空）
+    start_date: '2019-06-14'
+    # 留言
     sweet_words: ''
 
   -
     type: 'group'
-    # 群组微信昵称
-    wechat_name: '一个测试群'
-    # 群组城市
+    wechat_name: '🐑🐔🐶🏠❤️🔆'
     city_name: '汕头'
-    # 运行开始时间
-    start_date: ''
-    # 留言
+    start_date: '2019-06-14'
     sweet_words: ''
 
-  - type: 'group'
-    wechat_name: '🈚️表情包😁🏫'
-    city_name: '珠海'
-    start_date: '2019-06-11'
+  -
+    type: 'group'
+    wechat_name: '21+1的天空(4保1)'
+    city_name: '广州'
+    start_date: '2019-06-14'
     sweet_words: ''
-
-#  -
-#    wechat_name: '🐑🐔🐶🏠❤️🔆'
-#    city_name: '汕头'
-#    start_data: ''
-#    sweet_words: ''

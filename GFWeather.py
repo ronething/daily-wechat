@@ -7,8 +7,15 @@ import requests
 import yaml
 from apscheduler.schedulers.blocking import BlockingScheduler
 from bs4 import BeautifulSoup
-
+from dotenv import load_dotenv
 import city_dict
+
+load_dotenv()
+
+sckey = os.getenv('SCKEY', None)
+
+if not sckey:
+    raise ValueError()
 
 # fire the job again if it was missed within GRACE_PERIOD
 GRACE_PERIOD = 15 * 60
@@ -18,7 +25,7 @@ class GFWeather:
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/67.0.3396.87 Safari/537.36",
     }
-    dictum_channel_name = {1: 'ONE●一个', 2: '词霸(每日英语)', 3: '土味情话'}
+    dictum_channel_name = {1: 'ONE●一个', 2: '词霸(每日英语)'}
 
     def __init__(self):
         self.friend_list, self.alarm_hour, self.alarm_minute, self.dictum_channel = self.get_init_data()
@@ -77,14 +84,16 @@ class GFWeather:
                 if itchat.search_friends():
                     return True
             except:
+                desp = F'{datetime.now().strftime("%Y-%m-%d %H:%M")}\n微信已掉线'
+                self.server_chan(desp)
                 return False
             return True
 
         if online():
             return True
-        # 仅仅判断是否在线
+        # 仅仅判断是否在线 执行到这一步说明 online 是 False
         if not auto_login:
-            return online()
+            return False
 
         # 登陆，尝试 5 次
         for _ in range(5):
@@ -96,6 +105,17 @@ class GFWeather:
         else:
             print('登录成功')
             return False
+
+    def server_chan(self, desp):
+        """server酱推送信息至微信"""
+        url = F'https://sc.ftqq.com/{sckey}.send'
+
+        data = {
+            'text': 'daily-wechat',
+            'desp': desp,
+        }
+        res = requests.post(url, data=data)
+        return True if res.status_code == 200 else False
 
     def run(self):
         """
@@ -126,7 +146,7 @@ class GFWeather:
                           minute=self.alarm_minute, misfire_grace_time=GRACE_PERIOD,
                           max_instances=len(self.friend_list))
         # scheduler.add_job(self.start_today_info, 'interval', seconds=10, max_instances=len(self.friend_list))
-        # 心跳包检测 每 5 分钟 后续加入 email 掉线通知
+        # 心跳包检测 每 5 分钟 后续加入 掉线通知 使用了 server 酱
         scheduler.add_job(self.is_online, 'interval', minutes=5, kwargs={'auto_login': True})
         scheduler.start()
 
@@ -143,8 +163,6 @@ class GFWeather:
             dictum_msg = self.get_dictum_info()
         elif self.dictum_channel == 2:
             dictum_msg = self.get_ciba_info()
-        elif self.dictum_channel == 3:
-            dictum_msg = self.get_lovelive_info()
         else:
             dictum_msg = ''
 
@@ -156,7 +174,8 @@ class GFWeather:
             today_msg = self.get_weather_info(dictum_msg, city_code=city_code, start_date=start_date,
                                               sweet_words=sweet_words)
             wechat_name = friend.get('wechat_name')
-            print(f'给『{wechat_name}』发送的内容是:\n{today_msg}')
+            # 后续 print 改为 logger 日志
+            # print(f'给『{wechat_name}』发送的内容是:\n{today_msg}')
 
             if not is_test:
                 if self.is_online(auto_login=True):
@@ -164,6 +183,10 @@ class GFWeather:
 
                 # 防止信息发送过快。
                 time.sleep(5)
+
+        # 推送成功
+        desp = F'{datetime.now().strftime("%Y-%m-%d %H:%M")}\n 每日推送成功'
+        self.server_chan(desp)
 
     def isJson(self, resp):
         """
@@ -209,19 +232,6 @@ class GFWeather:
         print('每日一句获取失败')
         return ''
 
-    def get_lovelive_info(self):
-        """
-        从土味情话中获取每日一句。
-        :return: str,土味情话
-        """
-        print('获取土味情话...')
-        resp = requests.get("https://api.lovelive.tools/api/SweetNothings")
-        if resp.status_code == 200:
-            return resp.text + "\n"
-        else:
-            print('每日一句获取失败')
-            return None
-
     def get_weather_info(self, dictum_msg='', city_code='101030100', start_date='2018-01-01',
                          sweet_words='From your Valentine'):
         """
@@ -238,7 +248,7 @@ class GFWeather:
         if resp.status_code == 200 and self.isJson(resp) and resp.json().get('status') == 200:
             weatherJson = resp.json()
             # 今日天气
-            today_weather = weatherJson.get('data').get('forecast')[1]
+            today_weather = weatherJson.get('data').get('forecast')[0]
             # 今日日期
             today_time = datetime.now().strftime('%Y{y}%m{m}%d{d} %H:%M:%S').format(y='年', m='月', d='日')
             # 今日天气注意事项
@@ -276,9 +286,6 @@ class GFWeather:
 
 
 if __name__ == '__main__':
-    # 直接运行
-    # GFWeather().run()
-
     # 只查看获取数据，
     # GFWeather().start_today_info(True)
 
